@@ -1,0 +1,1 @@
+The live backend cannot be activated by source code alone because the hosting account must supply the Netlify site ID, authentication token, and provider credentials. Those values are intentionally not committed. The included workflow is manual and activates only after the repository owner configures the required GitHub Actions secrets.
