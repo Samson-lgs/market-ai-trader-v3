@@ -2,11 +2,19 @@
 // Credentials remain server-side; the browser only calls our proxy.
 
 export class MarketDataProvider {
-  constructor({ baseUrl = '/.netlify/functions' } = {}) {
-    this.baseUrl = baseUrl.replace(/\/$/, '');
+  constructor({ baseUrl } = {}) {
+    const configured = baseUrl || globalThis.MARKET_API_BASE_URL || '/.netlify/functions';
+    this.baseUrl = configured.replace(/\/$/, '');
   }
 
   async candles(symbol, interval, outputsize = 200, { signal } = {}) {
+    // GitHub Pages is static hosting and cannot serve the Netlify function path.
+    // Fail fast so the dashboard can use its safe simulated fallback instead of
+    // waiting for a 404/timeout on every refresh.
+    if (globalThis.location?.hostname?.endsWith('.github.io') && !globalThis.MARKET_API_BASE_URL) {
+      throw new Error('Live backend is not configured for GitHub Pages.');
+    }
+
     const url = new URL(`${this.baseUrl}/candles`, window.location.origin);
     url.searchParams.set('symbol', symbol);
     url.searchParams.set('interval', interval);
