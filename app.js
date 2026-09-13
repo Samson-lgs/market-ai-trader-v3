@@ -6,6 +6,7 @@ import {
   detectSetups
 } from './src/analysis/index.js';
 import { loadLiveCandles } from './src/data/live.js';
+import { loadNewsRisk } from './src/data/news.js';
 
 const $ = id => document.getElementById(id);
 const symbols = {
@@ -23,7 +24,7 @@ const prices = {
 
 const state = {
   price: 1.0842, analysis: null, candles: null, feed: 'SIMULATED', loading: false,
-  lastUpdated: null, setup: null, newsRisk: 'UNKNOWN', map: null, ranked: null
+  lastUpdated: null, setup: null, newsRisk: { level: 'UNKNOWN', events: [] }, map: null, ranked: null
 };
 const LIVE_REFRESH_MS = 60000;
 let refreshTimer;
@@ -56,21 +57,34 @@ async function loadMarketAnalysis() {
   const symbol = $('symbol').value;
   state.price = prices[symbol] ?? 1;
   state.loading = true;
-  setStatus('LOADING MARKET DATA…');
-  try {
-    state.candles = await loadLiveCandles(symbol, 200);
+  setStatus('LOADING MARKET + EVENT DATA…');
+  const [marketResult, newsResult] = await Promise.allSettled([
+    loadLiveCandles(symbol, 200),
+    loadNewsRisk(symbol)
+  ]);
+
+  if (newsResult.status === 'fulfilled') {
+    state.newsRisk = newsResult.value;
+  } else {
+    state.newsRisk = { level: 'UNKNOWN', events: [] };
+    console.warn('Economic calendar unavailable:', newsResult.reason);
+  }
+
+  if (marketResult.status === 'fulfilled') {
+    state.candles = marketResult.value;
     state.analysis = analyzeMultiTimeframe(state.candles);
     state.feed = 'LIVE';
     state.lastUpdated = new Date();
     state.loading = false;
     renderAnalysis();
-  } catch (e) {
-    console.warn('Live market data unavailable:', e);
-    makeSimulatedAnalysis();
-    state.loading = false;
-    state.lastUpdated = new Date();
-    renderAnalysis('LIVE DATA UNAVAILABLE · SAFE DEMO FALLBACK');
+    return;
   }
+
+  console.warn('Live market data unavailable:', marketResult.reason);
+  makeSimulatedAnalysis();
+  state.loading = false;
+  state.lastUpdated = new Date();
+  renderAnalysis('LIVE DATA UNAVAILABLE · SAFE DEMO FALLBACK');
 }
 
 function setStatus(x) { if ($('statusText')) $('statusText').textContent = x; }
@@ -136,7 +150,7 @@ function draw() {
 
 function renderAnalysis(statusOverride) {
   const a = state.analysis; if (!a) return;
-  const mode = $('mode').value, eventGate = eventRiskGate({ level: state.newsRisk }), f = a.frames['5M'];
+  const mode = $('mode').value, eventGate = eventRiskGate(state.newsRisk), f = a.frames['5M'];
   state.setup = setupQuality({ analysis: a, newsRisk: state.newsRisk });
   state.map = liquidityMap(state.candles?.['5M'] || [], f?.atr || 0);
   state.ranked = detectSetups({
@@ -164,12 +178,19 @@ function renderAnalysis(statusOverride) {
   $('regime').textContent = a.higherTimeframeBias === 'BULLISH' ? 'Bullish' : a.higherTimeframeBias === 'BEARISH' ? 'Bearish' : 'Balanced';
   $('regimeDetail').textContent = `MTF · ${state.setup.session.active} · ${ranked?.grade || state.setup.grade}-grade`;
 
-  const reasons = [...(ranked?.reasons || []), ...(eventGate.warning ? [eventGate.warning] : [])];
+  const newsSummary = state.newsRisk.level === 'HIGH'
+    ? 'High-impact event window detected; entries are blocked.'
+    : state.newsRisk.level === 'MEDIUM'
+      ? 'Moderate event risk detected; stronger confirmation required.'
+      : state.newsRisk.level === 'UNKNOWN'
+        ? 'Economic-calendar feed unavailable; news risk remains UNKNOWN.'
+        : 'No material high-impact event detected in the configured window.';
+  const reasons = [...(ranked?.reasons || []), newsSummary];
   $('strongest').textContent = display === 'NO TRADE' ? 'No valid setup yet' : `${ranked.type.replaceAll('_', ' ')} · ${display} · Grade ${ranked.grade}`;
-  $('strongestText').textContent = reasons.length ? reasons.join(' ') : `${a.execution.reason} Setup quality ${confidence}/100.`;
+  $('strongestText').textContent = reasons.join(' ');
   $('why').textContent = display === 'NO TRADE'
-    ? (ranked?.reasons?.find(r => r.includes('below') || r.includes('risk') || r.includes('sweep') || r.includes('structure')) || a.execution.reason)
-    : `${ranked.type.replaceAll('_', ' ')} detected with ${ranked.rr.toFixed(1)}R projected reward/risk. Validate the entry trigger before acting.`;
+    ? (ranked?.reasons?.find(r => r.includes('below') || r.includes('risk') || r.includes('sweep') || r.includes('structure')) || eventGate.warning || a.execution.reason)
+    : `${ranked.type.replaceAll('_', ' ')} detected with ${ranked.rr.toFixed(1)}R projected reward/risk. ${newsSummary}`;
 
   const checks = [
     ['HTF structure', a.higherTimeframeBias === 'CONFLICT' || a.higherTimeframeBias === 'RANGE' ? 'WAIT' : 'PASS'],
@@ -179,17 +200,17 @@ function renderAnalysis(statusOverride) {
     ['Setup ranking', ranked ? `${ranked.score}/100` : 'WAIT'],
     ['Risk / reward', ranked && ranked.rr >= 1.5 ? 'PASS' : 'BLOCK'],
     ['Session quality', state.setup.session.level === 'NORMAL' ? 'PASS' : 'WAIT'],
-    ['News risk', state.newsRisk === 'HIGH' ? 'BLOCK' : state.newsRisk === 'UNKNOWN' ? 'UNKNOWN' : 'PASS'],
+    ['News risk', state.newsRisk.level === 'HIGH' ? 'BLOCK' : state.newsRisk.level === 'UNKNOWN' ? 'UNKNOWN' : 'PASS'],
     ['Final risk gate', display === 'NO TRADE' ? 'BLOCK' : 'PASS']
   ];
   $('checks').innerHTML = checks.map(([n, s]) => `<div class="check"><span>${n}</span><b class="${s === 'PASS' ? 'ok' : 'warn'}">${s}</b></div>`).join('');
-  setStatus(statusOverride || (state.feed === 'LIVE' ? `LIVE FEED · TWELVE DATA · ${ranked?.grade || state.setup.grade}-GRADE` : `SIMULATED FEED · ${ranked?.grade || state.setup.grade}-GRADE`) + ` · UPDATED ${(state.lastUpdated || new Date()).toLocaleTimeString()}`);
+  setStatus(statusOverride || (state.feed === 'LIVE' ? `LIVE FEED · TWELVE DATA · NEWS ${state.newsRisk.level} · ${ranked?.grade || state.setup.grade}-GRADE` : `SIMULATED FEED · NEWS ${state.newsRisk.level} · ${ranked?.grade || state.setup.grade}-GRADE`) + ` · UPDATED ${(state.lastUpdated || new Date()).toLocaleTimeString()}`);
   draw();
 }
 
 async function refreshAnalysis() { if (!state.loading) await loadMarketAnalysis(); }
 function watch() {
-  $('watchlist').innerHTML = symbols[$('assetClass').value].map(n => `<div class="watch"><strong>${n}</strong><small>Setup ranking + liquidity</small><b>ANALYZE</b></div>`).join('');
+  $('watchlist').innerHTML = symbols[$('assetClass').value].map(n => `<div class="watch"><strong>${n}</strong><small>Setup ranking + news risk</small><b>ANALYZE</b></div>`).join('');
 }
 $('mode').onchange = renderAnalysis;
 window.addEventListener('resize', draw);
