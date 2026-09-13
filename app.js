@@ -1,4 +1,6 @@
 import { analyzeMultiTimeframe } from './src/analysis/index.js';
+import { loadLiveAnalysis } from './src/data/live.js';
+import { MarketDataProvider } from './src/data/provider.js';
 
 const $ = id => document.getElementById(id);
 const symbols = {
@@ -10,7 +12,9 @@ const symbols = {
 
 const prices = {'EUR/USD':1.0842,'GBP/USD':1.2631,'USD/JPY':157.42,'AUD/USD':0.6512,'USD/CAD':1.3711,'BTC/USD':104250,'ETH/USD':3820,'SOL/USD':242.5,'XRP/USD':2.31,'BNB/USD':701,'S&P 500':5600,'NASDAQ 100':19750,'DOW 30':40900,'NIFTY 50':24800,'DAX 40':18800,'Gold':2350,'Silver':29.1,'WTI Crude':78.2,'Brent Crude':82.4,'Natural Gas':2.7};
 
-const state = { price: 1.0842, analysis: null };
+const state = { price: 1.0842, analysis: null, candles: null, feed: 'SIMULATED', loading: false, lastUpdated: null };
+const LIVE_REFRESH_MS = 60_000;
+let refreshTimer;
 
 function seedCandles(base, count = 180, trend = 0.00035) {
   const candles = [];
@@ -28,9 +32,7 @@ function seedCandles(base, count = 180, trend = 0.00035) {
   return candles;
 }
 
-function makeAnalysis() {
-  const symbol = $('symbol').value;
-  state.price = prices[symbol] ?? 1;
+function makeSimulatedAnalysis() {
   const base = state.price;
   const bias = Math.random() > 0.5 ? 0.00035 : -0.00035;
   const candlesByTimeframe = {
@@ -40,8 +42,37 @@ function makeAnalysis() {
     '5M': seedCandles(base, 180, bias * 0.75),
     '1M': seedCandles(base, 180, bias * 0.55)
   };
+  state.candles = candlesByTimeframe;
   state.analysis = analyzeMultiTimeframe(candlesByTimeframe);
-  return state.analysis;
+  state.feed = 'SIMULATED';
+}
+
+async function loadMarketAnalysis() {
+  const symbol = $('symbol').value;
+  const base = prices[symbol] ?? 1;
+  state.price = base;
+  state.loading = true;
+  setStatus('LOADING LIVE FEED…');
+
+  try {
+    const result = await loadLiveAnalysis(symbol, 200);
+    state.analysis = result;
+    state.feed = 'LIVE';
+    state.lastUpdated = new Date();
+    state.loading = false;
+    renderAnalysis();
+  } catch (error) {
+    console.warn('Live market data unavailable:', error);
+    makeSimulatedAnalysis();
+    state.loading = false;
+    state.lastUpdated = new Date();
+    renderAnalysis('LIVE DATA UNAVAILABLE · SAFE DEMO FALLBACK');
+  }
+}
+
+function setStatus(message) {
+  const el = $('statusText');
+  if (el) el.textContent = message;
 }
 
 function populate() {
@@ -51,28 +82,53 @@ function populate() {
 }
 function updateTitle() { $('chartTitle').textContent = `${$('symbol').value} · ${$('tf').value}`; }
 populate();
-$('assetClass').onchange = () => { populate(); scan(); watch(); };
-$('tf').onchange = updateTitle;
-$('symbol').onchange = () => { updateTitle(); scan(); watch(); };
+$('assetClass').onchange = () => { populate(); refreshAnalysis(); watch(); };
+$('tf').onchange = () => { updateTitle(); draw(); };
+$('symbol').onchange = () => { updateTitle(); refreshAnalysis(); watch(); };
 
 function draw() {
   const c = $('chart'), ctx = c.getContext('2d'), dpr = devicePixelRatio || 1, w = c.clientWidth, h = 260;
   c.width = w * dpr; c.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
   ctx.strokeStyle = '#183249'; ctx.lineWidth = 1;
   for (let y = 25; y < h; y += 42) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+  const tf = $('tf').value;
+  const candles = state.candles?.[tf];
+  if (!candles?.length) return drawFallbackLine(ctx, w, h);
+
+  const visible = candles.slice(-80);
+  const lows = visible.map(x => x.low), highs = visible.map(x => x.high);
+  const min = Math.min(...lows), max = Math.max(...highs), range = Math.max(max - min, Number.EPSILON);
+  const bodyWidth = Math.max(3, (w - 24) / visible.length * 0.62);
+  const step = (w - 24) / visible.length;
+  const y = value => 14 + (max - value) / range * (h - 28);
+
+  visible.forEach((k, i) => {
+    const x = 12 + i * step + step / 2;
+    ctx.strokeStyle = k.close >= k.open ? '#75d58a' : '#e47777';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, y(k.high)); ctx.lineTo(x, y(k.low)); ctx.stroke();
+    const top = Math.min(y(k.open), y(k.close));
+    const height = Math.max(1.5, Math.abs(y(k.open) - y(k.close)));
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.fillRect(x - bodyWidth / 2, top, bodyWidth, height);
+  });
+}
+
+function drawFallbackLine(ctx, w, h) {
   let pts = [], v = h * .57;
   for (let i = 0; i < 80; i++) { v += Math.sin(i * .45) * 1.8 + (Math.random() - .48) * 5; v = Math.max(28, Math.min(h - 25, v)); pts.push(v); }
   ctx.strokeStyle = '#8be28b'; ctx.lineWidth = 2; ctx.beginPath();
-  pts.forEach((y, i) => { const x = i * (w - 18) / 79 + 9; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
+  pts.forEach((yy, i) => { const x = i * (w - 18) / 79 + 9; i ? ctx.lineTo(x, yy) : ctx.moveTo(x, yy); }); ctx.stroke();
 }
 
-function scan() {
+function renderAnalysis(statusOverride) {
+  const result = state.analysis;
+  if (!result) return;
   const mode = $('mode').value;
-  const result = makeAnalysis();
   const signal = result.decision;
   const confidence = Math.min(99, Math.max(35, result.execution.score ?? 45));
   const bullish = signal === 'CALL';
-  const bearish = signal === 'PUT';
   const displaySignal = mode === 'Conservative' && confidence < 75 ? 'NO TRADE' : signal;
 
   $('signal').textContent = displaySignal;
@@ -107,8 +163,15 @@ function scan() {
     ['Risk filter', result.execution.decision === 'NO TRADE' ? 'WAIT' : 'PASS']
   ];
   $('checks').innerHTML = checks.map(([n, s]) => `<div class="check"><span>${n}</span><b class="${s === 'PASS' ? 'ok' : 'warn'}">${s}</b></div>`).join('');
-  $('statusText').textContent = 'SIMULATED FEED · MTF ENGINE · UPDATED ' + new Date().toLocaleTimeString();
+
+  const source = state.feed === 'LIVE' ? 'LIVE FEED · TWELVE DATA' : 'SIMULATED FEED';
+  setStatus(statusOverride || `${source} · MTF ENGINE · UPDATED ${(state.lastUpdated || new Date()).toLocaleTimeString()}`);
   draw();
+}
+
+async function refreshAnalysis() {
+  if (state.loading) return;
+  await loadMarketAnalysis();
 }
 
 function watch() {
@@ -116,7 +179,12 @@ function watch() {
   $('watchlist').innerHTML = names.map(n => `<div class="watch"><strong>${n}</strong><small>15m structure</small><b>ANALYZE</b></div>`).join('');
 }
 
+$('mode').onchange = renderAnalysis;
 window.addEventListener('resize', draw);
-$('scanBtn').onclick = () => { scan(); watch(); };
-$('refreshBtn').onclick = () => { scan(); watch(); };
-scan(); watch();
+$('scanBtn').onclick = () => { refreshAnalysis(); watch(); };
+$('refreshBtn').onclick = () => { refreshAnalysis(); watch(); };
+
+watch();
+refreshAnalysis();
+clearInterval(refreshTimer);
+refreshTimer = setInterval(() => refreshAnalysis(), LIVE_REFRESH_MS);
