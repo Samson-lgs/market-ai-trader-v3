@@ -41,7 +41,7 @@ The adapter accepts common event shapes and normalizes title, currency, impact, 
 
 If the provider is not configured or fails, the application deliberately stays `UNKNOWN`; it does not invent economic events.
 
-Twelve Data currently documents market-data APIs and an earnings calendar, but a full forex economic calendar is not assumed to exist there. A dedicated calendar provider can therefore be connected through the server-side adapter without coupling the trading engine to a vendor. citeturn0search0turn0search1
+Twelve Data currently documents market-data APIs and an earnings calendar, so the project keeps the full economic-calendar integration provider-neutral rather than assuming Twelve Data supplies a forex macro calendar.
 
 ## Architecture
 `Market provider → secure serverless proxy → normalized OHLC → MTF analysis → liquidity/BOS/CHOCH → setup ranking → economic-event risk → session/risk gates → UI`
