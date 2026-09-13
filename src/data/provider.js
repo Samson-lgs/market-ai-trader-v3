@@ -6,7 +6,7 @@ export class MarketDataProvider {
     this.baseUrl = baseUrl.replace(/\/$/, '');
   }
 
-  async candles(symbol, interval, outputsize = 200) {
+  async candles(symbol, interval, outputsize = 200, { signal } = {}) {
     const url = new URL(`${this.baseUrl}/candles`, window.location.origin);
     url.searchParams.set('symbol', symbol);
     url.searchParams.set('interval', interval);
@@ -14,7 +14,8 @@ export class MarketDataProvider {
 
     const response = await fetch(url, {
       headers: { Accept: 'application/json' },
-      cache: 'no-store'
+      cache: 'no-store',
+      signal
     });
     if (!response.ok) {
       const payload = await response.json().catch(() => ({}));
