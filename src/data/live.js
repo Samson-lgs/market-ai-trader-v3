@@ -13,10 +13,14 @@ const cache = new Map();
 const CACHE_MS = 20_000;
 const REQUEST_TIMEOUT_MS = 12_000;
 
-function withTimeout(promise, ms = REQUEST_TIMEOUT_MS) {
+async function fetchWithTimeout(provider, symbol, interval, outputsize) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), ms);
-  return promise(controller.signal).finally(() => clearTimeout(timeout));
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await provider.candles(symbol, interval, outputsize, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function loadLiveCandles(symbol, outputsize = 200) {
@@ -27,7 +31,7 @@ export async function loadLiveCandles(symbol, outputsize = 200) {
   const provider = new MarketDataProvider();
   const entries = await Promise.all(
     Object.entries(TIMEFRAME_MAP).map(async ([label, interval]) => {
-      const candles = await withTimeout(provider.candles(symbol, interval, outputsize));
+      const candles = await fetchWithTimeout(provider, symbol, interval, outputsize);
       return [label, candles];
     })
   );
