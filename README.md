@@ -38,7 +38,15 @@ Expected JSON shape:
 }
 ```
 
-The backtester builds each decision only from candles available at that timestamp, then evaluates later candles for stop/target outcomes. If one candle touches both stop and target, the model conservatively counts the stop first. Slippage and fee assumptions can be supplied in R.
+Validation rules:
+- Decisions use only candles whose timestamps are at or before the execution candle.
+- Future candles are used only after a setup has been accepted, for outcome evaluation.
+- A same-candle stop/target collision is treated as a stop first.
+- Trades have a configurable maximum holding period and cooldown.
+- Slippage and fees are modeled as R deductions rather than ignored.
+- Results are reported in R so they are independent of account size.
+
+This is a model-validation tool, not proof of profitability. Robust evaluation should use multiple market regimes, realistic transaction costs and an untouched out-of-sample period.
 
 ## Live-data setup
 Configure `TWELVE_DATA_API_KEY` as a server-side deployment environment variable. Never put the provider key in `app.js`, HTML, or any public frontend file.
