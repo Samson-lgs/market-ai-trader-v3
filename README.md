@@ -4,40 +4,38 @@ A decision-intelligence dashboard for multi-timeframe market analysis across For
 
 ## Built so far
 - Multi-timeframe engine: 1H → 30M → 15M → 5M → 1M
-- EMA, SMA, RSI, MACD and ATR indicators
-- Market-structure and support/resistance detection
-- Liquidity zones, sweeps and displacement context
+- EMA, SMA, RSI, MACD and ATR
+- Market structure, support/resistance, liquidity sweeps and displacement
 - Smart-money-style BOS / CHOCH, liquidity pools and supply/demand zones
-- Weighted CALL / PUT / NO-TRADE decision engine
-- Secure Netlify/Twelve Data server-side candle proxy
-- Live OHLC candles with 60-second refresh and short client cache
-- Session-aware setup quality grading
-- Conservative event/news-risk adapter
-- **AI setup detection and ranking:** liquidity sweep → displacement → BOS/CHOCH → nearby zone → invalidation → liquidity target → R/R scoring
-- Candidate grades A/B/C/D with explicit hard blocks
-- Chart overlay for entry, invalidation, targets and entry zone
-- Explicit final NO-TRADE gate
+- AI setup detection/ranking with entry, invalidation, TP1/TP2 and R:R
+- Session-aware setup grading and explicit NO-TRADE gating
+- Secure server-side market-data proxy
+- Economic-calendar proxy with HIGH / MEDIUM / LOW / UNKNOWN risk
+- Currency-aware event filtering for forex pairs
+- Walk-forward historical backtesting using the same setup engine
+- Backtest metrics: win rate, expectancy, profit factor, net R, max drawdown and loss streak
+- Setup grade/type performance breakdown and trade log
+- Browser Backtest Lab
 - Safe simulated fallback when live data is unavailable
 
-## Setup-ranking rules
-A candidate is ranked using higher-timeframe alignment, liquidity sweep, displacement, structure confirmation, zone proximity and projected risk/reward. The engine requires a directional HTF bias and applies hard blocks when there is no sweep, no structural confirmation, no displacement, projected R/R is below 1.5, or news risk is HIGH.
+## Backtest Lab
+Open `backtest.html` from the deployed dashboard and load chronological multi-timeframe JSON:
 
-The ranking layer is intentionally conservative: a high score is not a probability of profit. Smart-money labels describe price behavior and structure; they are not proof of institutional activity.
+```json
+{
+  "candlesByTimeframe": {
+    "1H": [], "30M": [], "15M": [], "5M": [], "1M": []
+  }
+}
+```
 
-## Live-data setup
-Configure `TWELVE_DATA_API_KEY` as a server-side deployment environment variable. Never put the provider key in `app.js`, HTML, or any public frontend file.
+The backtester uses only candles available at the decision timestamp. Future candles are used only for outcome evaluation. Same-candle stop/target collisions are resolved conservatively as stop-first. Holding period, cooldown, slippage and fees are configurable.
 
-The frontend calls:
-
-`/.netlify/functions/candles?symbol=EUR/USD&interval=15min&outputsize=200`
-
-The backend reads the provider secret and returns normalized candles to the browser.
-
-## News-risk status
-The event layer deliberately reports `UNKNOWN` until a real economic-calendar/news provider is connected. It never invents upcoming events. A future calendar integration should supply LOW / MEDIUM / HIGH risk and event metadata.
+## Live setup
+Keep provider credentials server-side. Configure `TWELVE_DATA_API_KEY` for market candles and `CALENDAR_API_URL` plus optional `CALENDAR_API_KEY` for the economic calendar. Never place real keys in frontend files.
 
 ## Architecture
-`Market provider → secure serverless proxy → normalized OHLC → MTF analysis → liquidity/BOS/CHOCH → setup detection/ranking → session/news risk → final NO-TRADE gate → UI`
+`Market data → secure proxy → MTF analysis → liquidity/BOS/CHOCH → setup ranking → economic-event risk → session/risk gates → historical validation → UI`
 
 ## Safety
-This is an analysis/education interface, not financial advice and not an automated trading system. Signals are model outputs, not guaranteed probabilities of profit. Forex, crypto and leveraged products can result in substantial losses. Paper trading and historical backtesting should come before any execution integration.
+This is an analysis/education interface, not financial advice or an automated trading system. Signals and backtests are model outputs, not guarantees of future performance. Forex, crypto and leveraged products can result in substantial losses.
