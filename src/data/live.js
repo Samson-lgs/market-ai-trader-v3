@@ -11,7 +11,7 @@ const TIMEFRAME_MAP = {
 
 const cache = new Map();
 const CACHE_MS = 20_000;
-const REQUEST_TIMEOUT_MS = 12_000;
+const REQUEST_TIMEOUT_MS = 5_000;
 
 async function fetchWithTimeout(provider, symbol, interval, outputsize) {
   const controller = new AbortController();
@@ -35,7 +35,6 @@ export async function loadLiveCandles(symbol, outputsize = 200) {
       return [label, candles];
     })
   );
-
   const candlesByTimeframe = Object.fromEntries(entries);
   cache.set(key, { timestamp: Date.now(), candlesByTimeframe });
   return candlesByTimeframe;
