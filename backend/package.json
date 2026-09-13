@@ -1,0 +1,7 @@
+{
+  "name": "market-ai-trader-v3-realtime-gateway",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node realtime-server.js" },
+  "dependencies": { "ws": "^8.18.0" }
+}

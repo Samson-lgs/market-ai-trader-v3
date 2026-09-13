@@ -1,0 +1,32 @@
+name: Realtime QA
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - 'src/data/realtime.js'
+      - 'src/data/liveCoordinator.js'
+      - 'src/market/**'
+      - '.github/workflows/realtime-qa.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'src/data/realtime.js'
+      - 'src/data/liveCoordinator.js'
+      - 'src/market/**'
+      - '.github/workflows/realtime-qa.yml'
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --omit=dev
+      - run: node --check realtime-server.js
+      - run: node --input-type=module -e "import('./realtime-server.js').then(()=>setTimeout(()=>process.exit(0),100))"
