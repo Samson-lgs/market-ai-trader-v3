@@ -6,3 +6,4 @@ export { scoreCandidate } from './decision.js';
 export { sessionContext, sessionRisk, setupQuality, riskGate } from './professional.js';
 export { normalizeNewsRisk, eventRiskGate } from './events.js';
 export { swingPoints, structureEvents, liquidityPools, supplyDemandZones, liquidityMap } from './smartMoney.js';
+export { detectSetups } from './setups.js';
