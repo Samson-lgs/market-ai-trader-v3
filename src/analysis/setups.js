@@ -52,10 +52,12 @@ function candidateFor(side, candles, frame, bias, map, newsRisk = 'UNKNOWN', ses
   const hasSweep = side === 'CALL' ? bullishSweep : bearishSweep;
   const hasDisplacement = impulse === (side === 'CALL' ? 'BULLISH' : 'BEARISH');
   const structureEvent = mapData.structure?.bos || mapData.structure?.choch;
-  const eventMatches = structureEvent && structureEvent.type.startsWith(side === 'CALL' ? 'BULLISH' : 'BEARISH');
+  const expectedStructureType = side === 'CALL'
+    ? ['BULLISH_BOS', 'BULLISH_CHOCH']
+    : ['BEARISH_BOS', 'BEARISH_CHOCH'];
+  const eventMatches = Boolean(structureEvent && expectedStructureType.includes(structureEvent.type));
   const zone = zoneForSide(mapData, side, price);
 
-  // Prefer a broken-structure level as invalidation; otherwise use ATR risk.
   const structuralLevel = Number(structureEvent?.level);
   const atrStop = side === 'CALL' ? price - atrValue * 1.5 : price + atrValue * 1.5;
   const invalidation = Number.isFinite(structuralLevel)
@@ -103,9 +105,6 @@ function candidateFor(side, candles, frame, bias, map, newsRisk = 'UNKNOWN', ses
   };
 }
 
-/**
- * Detect and rank CALL/PUT setup candidates from execution candles.
- */
 export function detectSetups({ candles, analysis, map, newsRisk = 'UNKNOWN', sessionLevel = 'NORMAL' } = {}) {
   const execution = analysis?.frames?.['5M'];
   const bias = analysis?.higherTimeframeBias;
