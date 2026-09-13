@@ -1,0 +1,1 @@
+The repository is prepared for Netlify backend activation. See DEPLOY_LIVE.md.
