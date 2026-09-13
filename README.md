@@ -10,14 +10,14 @@ A decision-intelligence dashboard for multi-timeframe market analysis across For
 - Smart-money-style BOS / CHOCH, liquidity pools and supply/demand zones
 - AI-style setup detection and ranking with entry, invalidation, TP1/TP2 and R:R
 - Weighted CALL / PUT / NO-TRADE decision engine
-- Secure Netlify/Twelve Data server-side candle proxy
-- Live OHLC candles with 60-second refresh and short client cache
+- Secure server-side market-data and economic-calendar proxy architecture
+- Live OHLC candles with refresh/cache
 - Session-aware setup quality grading
-- Economic-calendar risk adapter with HIGH / MEDIUM / LOW / UNKNOWN states
-- Secure server-side calendar proxy; provider credentials never reach the browser
+- HIGH / MEDIUM / LOW / UNKNOWN economic-event risk states
 - Walk-forward historical backtesting with no-future-leak decision timestamps
 - Backtest metrics: win rate, expectancy, profit factor, net R, max drawdown and loss streak
 - Backtest breakdown by setup grade and setup type
+- Backtest Lab browser page
 - Explicit final NO-TRADE gate
 - Safe simulated fallback when live data is unavailable
 
@@ -26,14 +26,18 @@ Open `backtest.html` from the deployed dashboard to load chronological multi-tim
 
 The backtester uses only candles available at the decision timestamp. Future candles are used only to evaluate outcomes. Same-candle stop/target collisions are treated conservatively as stop-first. Holding period, cooldown, slippage and fees are configurable.
 
+Expected JSON shape:
+
+```json
+{
+  "candlesByTimeframe": {
+    "1H": [], "30M": [], "15M": [], "5M": [], "1M": []
+  }
+}
+```
+
 ## Live-data setup
-Configure `TWELVE_DATA_API_KEY` as a server-side deployment environment variable. Never put the provider key in `app.js`, HTML, or any public frontend file.
-
-## Economic-calendar setup
-Configure `CALENDAR_API_URL` and optional `CALENDAR_API_KEY` server-side. If the provider is not configured or fails, the application stays `UNKNOWN`; it does not invent economic events.
-
-## Architecture
-`Market provider → secure proxy → normalized OHLC → MTF → liquidity/BOS/CHOCH → setup ranking → economic-event risk → session/risk gates → backtesting → UI`
+Configure provider credentials only on the server. Never put real API keys in frontend JavaScript or HTML.
 
 ## Safety
-This is an analysis/education interface, not financial advice and not an automated trading system. Signals are model outputs, not guaranteed probabilities of profit. Forex, crypto and leveraged products can result in substantial losses. Historical backtests are model measurements, not guarantees of future performance. Paper trading should come before any execution integration.
+This is an analysis/education interface, not financial advice and not an automated trading system. Signals and backtests are model outputs, not guarantees of future performance. Forex, crypto and leveraged products can result in substantial losses.
