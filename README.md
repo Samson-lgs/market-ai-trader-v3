@@ -8,21 +8,15 @@ A decision-intelligence dashboard for multi-timeframe market analysis across For
 - Market-structure and support/resistance detection
 - Liquidity zones, sweeps and displacement context
 - Smart-money-style BOS / CHOCH, liquidity pools and supply/demand zones
+- AI-style setup detection and ranking with entry, invalidation, TP1/TP2 and R:R
 - Weighted CALL / PUT / NO-TRADE decision engine
 - Secure Netlify/Twelve Data server-side candle proxy
 - Live OHLC candles with 60-second refresh and short client cache
 - Session-aware setup quality grading
-- Conservative event/news-risk adapter
-- **AI setup detection and ranking:** liquidity sweep → displacement → BOS/CHOCH → nearby zone → invalidation → liquidity target → R/R scoring
-- Candidate grades A/B/C/D with explicit hard blocks
-- Chart overlay for entry, invalidation, targets and entry zone
+- Economic-calendar risk adapter with HIGH / MEDIUM / LOW / UNKNOWN states
+- Secure server-side calendar proxy; provider credentials never reach the browser
 - Explicit final NO-TRADE gate
 - Safe simulated fallback when live data is unavailable
-
-## Setup-ranking rules
-A candidate is ranked using higher-timeframe alignment, liquidity sweep, displacement, structure confirmation, zone proximity and projected risk/reward. The engine requires a directional HTF bias and applies hard blocks when there is no sweep, no structural confirmation, no displacement, projected R/R is below 1.5, or news risk is HIGH.
-
-The ranking layer is intentionally conservative: a high score is not a probability of profit. Smart-money labels describe price behavior and structure; they are not proof of institutional activity.
 
 ## Live-data setup
 Configure `TWELVE_DATA_API_KEY` as a server-side deployment environment variable. Never put the provider key in `app.js`, HTML, or any public frontend file.
@@ -33,11 +27,24 @@ The frontend calls:
 
 The backend reads the provider secret and returns normalized candles to the browser.
 
-## News-risk status
-The event layer deliberately reports `UNKNOWN` until a real economic-calendar/news provider is connected. It never invents upcoming events. A future calendar integration should supply LOW / MEDIUM / HIGH risk and event metadata.
+## Economic-calendar setup
+The frontend calls the server-side calendar proxy:
+
+`/.netlify/functions/calendar?symbol=EUR/USD&currencies=EUR,USD&horizonMinutes=180`
+
+Configure these server-side variables:
+
+- `CALENDAR_API_URL` — provider endpoint returning upcoming events.
+- `CALENDAR_API_KEY` — optional provider credential.
+
+The adapter accepts common event shapes and normalizes title, currency, impact, time, forecast, previous and actual values. It derives HIGH / MEDIUM / LOW risk from the events in the configured forward window.
+
+If the provider is not configured or fails, the application deliberately stays `UNKNOWN`; it does not invent economic events.
+
+Twelve Data currently documents market-data APIs and an earnings calendar, but a full forex economic calendar is not assumed to exist there. A dedicated calendar provider can therefore be connected through the server-side adapter without coupling the trading engine to a vendor. citeturn0search0turn0search1
 
 ## Architecture
-`Market provider → secure serverless proxy → normalized OHLC → MTF analysis → liquidity/BOS/CHOCH → setup detection/ranking → session/news risk → final NO-TRADE gate → UI`
+`Market provider → secure serverless proxy → normalized OHLC → MTF analysis → liquidity/BOS/CHOCH → setup ranking → economic-event risk → session/risk gates → UI`
 
 ## Safety
 This is an analysis/education interface, not financial advice and not an automated trading system. Signals are model outputs, not guaranteed probabilities of profit. Forex, crypto and leveraged products can result in substantial losses. Paper trading and historical backtesting should come before any execution integration.
