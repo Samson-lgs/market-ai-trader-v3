@@ -1,0 +1,1 @@
+Live backend integration source is ready; external Netlify account configuration remains required.
