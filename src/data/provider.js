@@ -1,17 +1,14 @@
-// Provider-neutral market-data contract.
-// Credentials remain server-side; the browser only calls our proxy.
+import { MARKET_API_BASE_URL } from '../config.js';
 
+// Provider-neutral market-data contract. Credentials remain server-side.
 export class MarketDataProvider {
   constructor({ baseUrl } = {}) {
-    const configured = baseUrl || globalThis.MARKET_API_BASE_URL || '/.netlify/functions';
+    const configured = baseUrl || MARKET_API_BASE_URL || '/.netlify/functions';
     this.baseUrl = configured.replace(/\/$/, '');
   }
 
   async candles(symbol, interval, outputsize = 200, { signal } = {}) {
-    // GitHub Pages is static hosting and cannot serve the Netlify function path.
-    // Fail fast so the dashboard can use its safe simulated fallback instead of
-    // waiting for a 404/timeout on every refresh.
-    if (globalThis.location?.hostname?.endsWith('.github.io') && !globalThis.MARKET_API_BASE_URL) {
+    if (globalThis.location?.hostname?.endsWith('.github.io') && !MARKET_API_BASE_URL) {
       throw new Error('Live backend is not configured for GitHub Pages.');
     }
 
@@ -33,14 +30,17 @@ export class MarketDataProvider {
     const payload = await response.json();
     if (!Array.isArray(payload.candles)) throw new Error('Invalid candle payload');
 
-    return payload.candles.map(c => ({
+    const candles = payload.candles.map(c => ({
       time: c.datetime,
       datetime: c.datetime,
       open: Number(c.open),
       high: Number(c.high),
       low: Number(c.low),
       close: Number(c.close),
-      volume: Number(c.volume || 0)
+      volume: c.volume == null ? 0 : Number(c.volume)
     })).filter(c => [c.open, c.high, c.low, c.close].every(Number.isFinite));
+
+    if (candles.length < 40) throw new Error('Live backend returned insufficient candle history.');
+    return candles;
   }
 }
