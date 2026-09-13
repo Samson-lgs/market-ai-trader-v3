@@ -24,44 +24,13 @@ A decision-intelligence dashboard for multi-timeframe market analysis across For
 ## Backtest Lab
 Open `backtest.html` from the deployed dashboard to load chronological multi-timeframe JSON and evaluate the same setup engine historically.
 
-Expected JSON shape:
-
-```json
-{
-  "candlesByTimeframe": {
-    "1H": [],
-    "30M": [],
-    "15M": [],
-    "5M": [],
-    "1M": []
-  }
-}
-```
-
-The backtester builds each decision only from candles available at that timestamp, then evaluates later candles for stop/target outcomes. If one candle touches both stop and target, the model conservatively counts the stop first. Slippage and fee assumptions can be supplied in R.
+The backtester uses only candles available at the decision timestamp. Future candles are used only to evaluate outcomes. Same-candle stop/target collisions are treated conservatively as stop-first. Holding period, cooldown, slippage and fees are configurable.
 
 ## Live-data setup
 Configure `TWELVE_DATA_API_KEY` as a server-side deployment environment variable. Never put the provider key in `app.js`, HTML, or any public frontend file.
 
-The frontend calls:
-
-`/.netlify/functions/candles?symbol=EUR/USD&interval=15min&outputsize=200`
-
-The backend reads the provider secret and returns normalized candles to the browser.
-
 ## Economic-calendar setup
-The frontend calls the server-side calendar proxy:
-
-`/.netlify/functions/calendar?symbol=EUR/USD&currencies=EUR,USD&horizonMinutes=180`
-
-Configure these server-side variables:
-
-- `CALENDAR_API_URL` — provider endpoint returning upcoming events.
-- `CALENDAR_API_KEY` — optional provider credential.
-
-The adapter accepts common event shapes and normalizes title, currency, impact, time, forecast, previous and actual values. It derives HIGH / MEDIUM / LOW risk from the events in the configured forward window.
-
-If the provider is not configured or fails, the application deliberately stays `UNKNOWN`; it does not invent economic events.
+Configure `CALENDAR_API_URL` and optional `CALENDAR_API_KEY` server-side. If the provider is not configured or fails, the application stays `UNKNOWN`; it does not invent economic events.
 
 ## Architecture
 `Market provider → secure proxy → normalized OHLC → MTF → liquidity/BOS/CHOCH → setup ranking → economic-event risk → session/risk gates → backtesting → UI`
