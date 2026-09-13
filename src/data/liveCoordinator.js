@@ -7,8 +7,7 @@ export async function startEndToEndFeed({ symbol, onUpdate, onStatus } = {}) {
   const seeded = await loadLiveCandles(symbol, 200);
   const oneMinute = new CandleAggregator({ seed: seeded?.['1M'] || [] });
   const emit = (reason = 'REST seed') => {
-    const candles = aggregateCandles(oneMinute.snapshot());
-    onUpdate?.({ symbol, candles, reason, fetchedAt: new Date().toISOString() });
+    onUpdate?.({ symbol, candles: aggregateCandles(oneMinute.snapshot()), reason, fetchedAt: new Date().toISOString() });
   };
   emit();
 
@@ -26,9 +25,7 @@ export async function startEndToEndFeed({ symbol, onUpdate, onStatus } = {}) {
     provider,
     refreshSeed: async () => {
       const fresh = await loadLiveCandles(symbol, 200);
-      const replacement = new CandleAggregator({ seed: fresh?.['1M'] || [] });
-      for (const candle of replacement.snapshot()) oneMinute.candles.push(candle);
-      oneMinute.candles = oneMinute.candles.slice(-500);
+      oneMinute.candles = (fresh?.['1M'] || []).slice(-500).map(c => ({ ...c }));
       emit('REST resync');
     },
     close: () => provider?.close()
