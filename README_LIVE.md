@@ -1,0 +1,1 @@
+Live backend integration is ready. Configure Netlify secrets and the public Functions URL outside the repository to activate live market data.
