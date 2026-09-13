@@ -3,8 +3,8 @@ import { createRealtimeProvider } from './realtimeProvider.js';
 import { CandleAggregator } from '../market/realtimeBars.js';
 import { aggregateCandles } from '../market/mtfAggregate.js';
 
-export async function startEndToEndFeed({ symbol, onUpdate, onStatus } = {}) {
-  const seeded = await loadLiveCandles(symbol, 200);
+export async function startEndToEndFeed({ symbol, initialCandles, onUpdate, onStatus } = {}) {
+  const seeded = initialCandles || await loadLiveCandles(symbol, 200);
   const oneMinute = new CandleAggregator({ seed: seeded?.['1M'] || [] });
   const emit = (reason = 'REST seed') => {
     onUpdate?.({ symbol, candles: aggregateCandles(oneMinute.snapshot()), reason, fetchedAt: new Date().toISOString() });
