@@ -15,8 +15,30 @@ A decision-intelligence dashboard for multi-timeframe market analysis across For
 - Session-aware setup quality grading
 - Economic-calendar risk adapter with HIGH / MEDIUM / LOW / UNKNOWN states
 - Secure server-side calendar proxy; provider credentials never reach the browser
+- Walk-forward historical backtesting with no-future-leak decision timestamps
+- Backtest metrics: win rate, expectancy, profit factor, net R, max drawdown and loss streak
+- Backtest breakdown by setup grade and setup type
 - Explicit final NO-TRADE gate
 - Safe simulated fallback when live data is unavailable
+
+## Backtest Lab
+Open `backtest.html` from the deployed dashboard to load chronological multi-timeframe JSON and evaluate the same setup engine historically.
+
+Expected JSON shape:
+
+```json
+{
+  "candlesByTimeframe": {
+    "1H": [],
+    "30M": [],
+    "15M": [],
+    "5M": [],
+    "1M": []
+  }
+}
+```
+
+The backtester builds each decision only from candles available at that timestamp, then evaluates later candles for stop/target outcomes. If one candle touches both stop and target, the model conservatively counts the stop first. Slippage and fee assumptions can be supplied in R.
 
 ## Live-data setup
 Configure `TWELVE_DATA_API_KEY` as a server-side deployment environment variable. Never put the provider key in `app.js`, HTML, or any public frontend file.
@@ -41,10 +63,8 @@ The adapter accepts common event shapes and normalizes title, currency, impact, 
 
 If the provider is not configured or fails, the application deliberately stays `UNKNOWN`; it does not invent economic events.
 
-Twelve Data currently documents market-data APIs and an earnings calendar, so the project keeps the full economic-calendar integration provider-neutral rather than assuming Twelve Data supplies a forex macro calendar.
-
 ## Architecture
-`Market provider → secure serverless proxy → normalized OHLC → MTF analysis → liquidity/BOS/CHOCH → setup ranking → economic-event risk → session/risk gates → UI`
+`Market provider → secure proxy → normalized OHLC → MTF → liquidity/BOS/CHOCH → setup ranking → economic-event risk → session/risk gates → backtesting → UI`
 
 ## Safety
-This is an analysis/education interface, not financial advice and not an automated trading system. Signals are model outputs, not guaranteed probabilities of profit. Forex, crypto and leveraged products can result in substantial losses. Paper trading and historical backtesting should come before any execution integration.
+This is an analysis/education interface, not financial advice and not an automated trading system. Signals are model outputs, not guaranteed probabilities of profit. Forex, crypto and leveraged products can result in substantial losses. Historical backtests are model measurements, not guarantees of future performance. Paper trading should come before any execution integration.
