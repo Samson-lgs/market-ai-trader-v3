@@ -8,3 +8,4 @@ export { normalizeNewsRisk, eventRiskGate } from './events.js';
 export { swingPoints, structureEvents, liquidityPools, supplyDemandZones, liquidityMap } from './smartMoney.js';
 export { detectSetups } from './setups.js';
 export { backtestMultiTimeframe, metrics as backtestMetrics } from './backtest.js';
+export { analyzePerformance, performanceSummary } from './performance.js';
