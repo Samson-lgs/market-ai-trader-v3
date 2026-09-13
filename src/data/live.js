@@ -9,14 +9,40 @@ const TIMEFRAME_MAP = {
   '1M': '1min'
 };
 
-export async function loadLiveAnalysis(symbol, outputsize = 200) {
+const cache = new Map();
+const CACHE_MS = 20_000;
+const REQUEST_TIMEOUT_MS = 12_000;
+
+function withTimeout(promise, ms = REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ms);
+  return promise(controller.signal).finally(() => clearTimeout(timeout));
+}
+
+export async function loadLiveCandles(symbol, outputsize = 200) {
+  const key = `${symbol}:${outputsize}`;
+  const cached = cache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_MS) return cached.candlesByTimeframe;
+
   const provider = new MarketDataProvider();
   const entries = await Promise.all(
     Object.entries(TIMEFRAME_MAP).map(async ([label, interval]) => {
-      const candles = await provider.candles(symbol, interval, outputsize);
+      const candles = await withTimeout(provider.candles(symbol, interval, outputsize));
       return [label, candles];
     })
   );
 
-  return analyzeMultiTimeframe(Object.fromEntries(entries));
+  const candlesByTimeframe = Object.fromEntries(entries);
+  cache.set(key, { timestamp: Date.now(), candlesByTimeframe });
+  return candlesByTimeframe;
+}
+
+export async function loadLiveAnalysis(symbol, outputsize = 200) {
+  const candlesByTimeframe = await loadLiveCandles(symbol, outputsize);
+  return analyzeMultiTimeframe(candlesByTimeframe);
+}
+
+export function clearLiveCache(symbol) {
+  if (symbol) cache.delete(`${symbol}:200`);
+  else cache.clear();
 }
