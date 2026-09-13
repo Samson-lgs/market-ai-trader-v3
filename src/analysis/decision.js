@@ -1,13 +1,13 @@
 // Confluence scoring and the NO-TRADE gate.
-// The gate deliberately requires multiple independent confirmations.
+// Risk is a gate, not a bullish/bearish directional factor.
 
 const WEIGHTS = {
-  structure: 25,
+  structure: 30,
   momentum: 15,
-  higherTimeframe: 20,
-  liquidity: 15,
+  higherTimeframe: 25,
+  liquidity: 10,
   volatility: 10,
-  risk: 15
+  execution: 10
 };
 
 export function scoreCandidate(factors) {
@@ -17,25 +17,32 @@ export function scoreCandidate(factors) {
     if (direction === 'BULLISH') bull += w;
     if (direction === 'BEARISH') bear += w;
   };
+
   add('structure', factors.structure);
   add('momentum', factors.momentum);
   add('higherTimeframe', factors.higherTimeframe);
   add('liquidity', factors.liquidity);
   add('volatility', factors.volatility);
-  add('risk', factors.risk);
+  add('execution', factors.execution);
 
   const direction = bull === bear ? 'NONE' : bull > bear ? 'CALL' : 'PUT';
   const score = Math.max(bull, bear);
   const opposing = Math.min(bull, bear);
   const edge = score - opposing;
 
-  // NO TRADE rules: insufficient score, weak edge, or explicit risk block.
-  const blocked = factors.risk === 'BLOCK' || score < 65 || edge < 20 || factors.higherTimeframe === 'CONFLICT';
+  const blocked = factors.risk === 'BLOCK'
+    || score < 65
+    || edge < 20
+    || factors.higherTimeframe === 'CONFLICT'
+    || direction === 'NONE';
+
   return {
     decision: blocked ? 'NO TRADE' : direction,
     score,
     edge,
     blocked,
-    reason: blocked ? 'Confluence is insufficient or risk filters are blocking the setup.' : 'Independent factors align strongly enough for a candidate setup; validate execution conditions.'
+    reason: blocked
+      ? 'Confluence is insufficient, conflicting, or risk filters are blocking the setup.'
+      : 'Independent factors align strongly enough for a candidate setup; validate execution conditions.'
   };
 }
