@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: market-ai-trader-v4-gateway
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: TWELVE_DATA_API_KEY
+        sync: false
+      - key: ALLOWED_ORIGIN
+        sync: false

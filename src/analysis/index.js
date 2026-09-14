@@ -7,6 +7,7 @@ export { sessionContext, sessionRisk, setupQuality, riskGate } from './professio
 export { normalizeNewsRisk, eventRiskGate } from './events.js';
 export { swingPoints, structureEvents, liquidityPools, supplyDemandZones, liquidityMap } from './smartMoney.js';
 export { detectSetups } from './setups.js';
+export { expiryForecasts, expiryHorizons } from './expiry.js';
 export { backtestMultiTimeframe, metrics as backtestMetrics } from './backtest.js';
 export { analyzePerformance, performanceSummary } from './performance.js';
 export { setupLifecycle, lifecycleLabel } from './lifecycle.js';
