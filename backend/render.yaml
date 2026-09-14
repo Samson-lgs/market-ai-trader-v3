@@ -3,9 +3,10 @@ services:
     name: market-ai-trader-v4-realtime
     runtime: node
     rootDir: backend
-    buildCommand: npm install
+    buildCommand: npm install --omit=dev
     startCommand: npm start
     healthCheckPath: /health
+    autoDeploy: true
     envVars:
       - key: TWELVE_DATA_API_KEY
         sync: false
