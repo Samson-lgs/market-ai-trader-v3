@@ -12,8 +12,8 @@ const PROVIDER_SYMBOLS = {
   'Gold': 'XAU/USD',
   'Silver': 'XAG/USD',
   'WTI Crude': 'WTI/USD',
-  'Brent Crude': 'BRENT/USD',
-  'Natural Gas': 'NG/USD',
+  'Brent Crude': 'XBR/USD',
+  'Natural Gas': 'XNG/USD',
 };
 
 export class MarketDataProvider {
