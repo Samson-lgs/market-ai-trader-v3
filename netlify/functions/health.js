@@ -13,17 +13,21 @@ exports.handler = async event => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: corsHeaders, body: '' };
   if (event.httpMethod !== 'GET') return response(405, { error: 'Method not allowed.' });
 
-  return response(200, {
-    ok: true,
+  const marketConfigured = Boolean(process.env.TWELVE_DATA_API_KEY);
+  const calendarConfigured = Boolean(process.env.CALENDAR_API_URL);
+
+  return response(marketConfigured ? 200 : 503, {
+    ok: marketConfigured,
     service: 'market-ai-trader-v3',
     marketData: {
-      configured: Boolean(process.env.TWELVE_DATA_API_KEY),
+      configured: marketConfigured,
       provider: 'twelve-data',
     },
     calendar: {
-      configured: Boolean(process.env.CALENDAR_API_URL),
-      provider: process.env.CALENDAR_API_URL ? 'configured-provider' : 'not-configured',
+      configured: calendarConfigured,
+      provider: calendarConfigured ? 'configured-provider' : 'not-configured',
     },
     serverTime: new Date().toISOString(),
+    error: marketConfigured ? null : 'TWELVE_DATA_API_KEY is not configured on the backend.',
   });
 };
